@@ -4,7 +4,6 @@ import cv
 import cv2
 import glob
 import numpy
-import os
 
 import pipeline
 from source  import FileStackReader
@@ -29,8 +28,9 @@ class HarrisDetection(pipeline.ProcessObject):
         imgH[-16:, :] = 0
         imgH[:, :16] = 0
         imgH[:, -16:] = 0
-        
+
         #non-max suppression
+        print imgH.shape
         localMax = filters.maximum_filter(imgH, (5,5))
         imgH = imgH * (imgH == localMax)
         
@@ -50,12 +50,16 @@ class HarrisDetection(pipeline.ProcessObject):
     
 
 '''
-Basic implementation of the KLT Tracker discussed in shi & tomasi
+Basic implementation of the KLT Tracker discussed in Shi & Tomasi
 
 '''
 class KLTracker(pipeline.ProcessObject):
     
-    def __init__(self, i0 = None, i1 = None, features = None, tensor = None, spdev = None ):
+    def __init__(self, i0=None, i1=None, features=None, tensor=None, spdev=None ):
+        """
+            Reads in two frames (i0, i1), Harris corner features, the
+            tensor, and spatial derivatives from the tensor.
+        """
             
         pipeline.ProcessObject.__init__(self, ik, 5,2) # 5 inputs, 2 outputs
         self.setInput(ikplusone, 1)
@@ -212,17 +216,28 @@ class Display(pipeline.ProcessObject):
             input = input[..., ::-1]
         
         cv2.imshow(self.name, input.astype(numpy.uint8))
+
+    def destroy(self):
+        cv2.destroyWindow(self.name)
+
         
         
 if __name__ == "__main__":
-    key = cv2.waitKey(10)
+    key = None
     image_dir = "images_100"
     images = sorted(glob.glob("%s/*.npy" % image_dir))
     fileStackReader  = FileStackReader(images)
-    print images
-    display = Display(fileStackReader.getOutput())
+    tensor = StructureTensor(fileStackReader.getOutput())
+    harris = HarrisDetection(tensor.getOutput(1))
+    display = Display(harris.getOutput(0)) # 0 is the image itself
     while key != 27:
         fileStackReader.increment()
-        #print fileStackReader.getFrameName()
+        print fileStackReader.getFrameName()
+        tensor.update()
+        harris.update()
         display.update()
-        cv2.waitKey(10)
+
+        print harris.getOutput(1)
+        key = cv2.waitKey(10)
+        key &= 255
+    display.destroy()
