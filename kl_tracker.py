@@ -18,6 +18,7 @@ class HarrisDetection(pipeline.ProcessObject):
         self.numFeatures = numFeatures
         
     def generateData(self):
+        inpt = self.getInput(0).getData()#.astype(numpy.float32)
         Ixx, Iyy, Ixy = self.getInput(0).getData()
         
         imgH = (Ixx * Iyy - Ixy**2) / (Ixx + Iyy + 1e-8)
@@ -44,7 +45,6 @@ class HarrisDetection(pipeline.ProcessObject):
             
         #add together
         features = numpy.vstack((xx, yy, imgH.flatten()[sortIdx])).transpose()
-        print "Harris input: %s" % str(inpt)
         self.getOutput(0).setData(inpt)
         self.getOutput(1).setData(features)
         
