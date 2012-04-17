@@ -56,8 +56,8 @@ Basic implementation of the KLT Tracker discussed in shi & tomasi
 class KLTracker(pipeline.ProcessObject):
     
     def __init__(self, ik = None, ikplusone = None, features = None, tensor = None,
-    		patchn = 5, ):
-    		
+            patchn = 5, ):
+            
         pipeline.ProcessObject.__init__(self, ik, 4)
         self.setInput(ikplusone, 1)
         self.setInput(features, 2)
@@ -65,26 +65,26 @@ class KLTracker(pipeline.ProcessObject):
         self.frame = 0
     
     def generateData(self):
-    	Ik = self.getInput(0).getData()
-    	Ikplusone = self.getInput(1).getData()
-    	features = self.getInput(2).getData()
-    	Ixx, Iyy, Ixy = self.getInput(3).getData()
-    	It = Ikplusone - Ik
-    	
-    	for i in range(features.shape[0]):
+        Ik = self.getInput(0).getData()
+        Ikplusone = self.getInput(1).getData()
+        features = self.getInput(2).getData()
+        Ixx, Iyy, Ixy = self.getInput(3).getData()
+        It = Ikplusone - Ik
+        
+        for i in range(features.shape[0]):
             if features[i,3,self.frame] == True:
                 pass
         return
 
-    	
+        
 class DisplayLabeled(pipeline.ProcessObject):
-	def __init__(self, input = None, features = None):
+    def __init__(self, input = None, features = None):
         pipeline.ProcessObject.__init__(self, input, 2)
         self.setInput(features, 1)
         
-	def generateData(self):
-		input = self.getInput(0).getData()
-		features = self.getInput(1).getData()
+    def generateData(self):
+        input = self.getInput(0).getData()
+        features = self.getInput(1).getData()
 
         
 #returns a tuple of the components of the structure tensor
@@ -135,7 +135,7 @@ class Display(pipeline.ProcessObject):
         
         
 if __name__ == "__main__":
-	key = cv2.waitKey(10)
+    key = cv2.waitKey(10)
     while key != 27:
       fileStackReader.increment()
       #print fileStackReader.getFrameName()
