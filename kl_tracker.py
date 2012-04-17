@@ -29,10 +29,6 @@ class HarrisDetection(pipeline.ProcessObject):
         imgH[:, :16] = 0
         imgH[:, -16:] = 0
 
-        # Temporary, use for testing
-        self.getOutput(0).setData(imgH)
-        return imgH
-        
         #non-max suppression
         print imgH.shape
         localMax = filters.maximum_filter(imgH, (5,5))
@@ -54,12 +50,16 @@ class HarrisDetection(pipeline.ProcessObject):
     
 
 '''
-Basic implementation of the KLT Tracker discussed in shi & tomasi
+Basic implementation of the KLT Tracker discussed in Shi & Tomasi
 
 '''
 class KLTracker(pipeline.ProcessObject):
     
-    def __init__(self, i0 = None, i1 = None, features = None, tensor = None, spdev = None ):
+    def __init__(self, i0=None, i1=None, features=None, tensor=None, spdev=None ):
+        """
+            Reads in two frames (i0, i1), Harris corner features, the
+            tensor, and spatial derivatives from the tensor.
+        """
             
         pipeline.ProcessObject.__init__(self, ik, 5)
         self.setInput(ikplusone, 1)
@@ -78,7 +78,7 @@ class KLTracker(pipeline.ProcessObject):
         
         #loop through features
         for i in range(features.shape[0]):
-        	# if the feature is active
+            # if the feature is active
             if features[i,3] == True:
                 #pull x and y from the feature
                 y = features[i,0]
@@ -118,16 +118,16 @@ class KLTracker(pipeline.ProcessObject):
                     GIxIt = (patchIt * patchIx * gg).sum()
                     GIyIt = (patchIt * patchIy * gg).sum()
                     ATb = numpy.matrix([[GixIt],
-                    					[GiyIt]])
+                                        [GiyIt]])
                     
                     #solve for Av = ATb
-                	duv = numpy.linalg.lstsq(A, ATb)
-                	
-                	
-                	U = U + duv[0]
-                	V = v + duv[1]
-                	
-                	count = count + 1
+                    duv = numpy.linalg.lstsq(A, ATb)
+                    
+                    
+                    U = U + duv[0]
+                    V = v + duv[1]
+                    
+                    count = count + 1
                 
                 
         
