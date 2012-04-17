@@ -1,15 +1,14 @@
-import imgutil
-import pipeline
-import source
-import numpy
-import os
-import glob
-import optparse
-import cv2
-import cv
-import shelve
 from scipy import ndimage
-
+import cv
+import cv2
+import glob
+import imgutil
+import numpy
+import optparse
+import os
+import pipeline
+import shelve
+import source
 
 
 class HarrisDetection(pipeline.ProcessObject):
@@ -73,15 +72,10 @@ class KLTracker(pipeline.ProcessObject):
     	It = Ikplusone - Ik
     	
     	for i in range(features.shape[0]):
-    		if features[i,3,self.frame] = True:
-    			
-    	
-    	
-    	
-    	
-    		
-    	
-    	
+            if features[i,3,self.frame] == True:
+                pass
+        return
+
     	
 class DisplayLabeled(pipeline.ProcessObject):
 	def __init__(self, input = None, features = None):
@@ -91,12 +85,6 @@ class DisplayLabeled(pipeline.ProcessObject):
 	def generateData(self):
 		input = self.getInput(0).getData()
 		features = self.getInput(1).getData()
-		
-		
-    	
-    	
-        
-        
 
         
 #returns a tuple of the components of the structure tensor
@@ -144,7 +132,6 @@ class Display(pipeline.ProcessObject):
             input = input[..., ::-1]
         
         cv2.imshow(self.name, input.astype(numpy.uint8))
-        
         
         
 if __name__ == "__main__":
