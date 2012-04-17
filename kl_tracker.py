@@ -2,8 +2,12 @@ from scipy import ndimage
 from scipy.ndimage import filters
 import cv
 import cv2
+import glob
 import numpy
+import os
+
 import pipeline
+from source  import FileStackReader
 
 
 class HarrisDetection(pipeline.ProcessObject):
@@ -18,6 +22,7 @@ class HarrisDetection(pipeline.ProcessObject):
         Ixx, Iyy, Ixy = self.getInput(0).getData()
         
         imgH = (Ixx * Iyy - Ixy**2) / (Ixx + Iyy + 1e-8)
+        (h, w) = imgH.shape[:2]
             
         # exclude points near the image border
         imgH[:16, :] = 0
@@ -76,6 +81,7 @@ class KLTracker(pipeline.ProcessObject):
                 A = numpy.matrix([[Ixx,Ixy],[Ixy, Iyy]])
                 
                 count = 0
+                '''
                 while count < 5
                 #start with a single iteration
                 # hardcode sigmaI right in there(#djykstrawouldntlikeit)
@@ -91,6 +97,7 @@ class KLTracker(pipeline.ProcessObject):
                 
                 patchI1 = interpolation.map_coordinates(I, (ryy, rxx))
                 patchIt = patch
+                '''
                 
         
 
@@ -154,10 +161,13 @@ class Display(pipeline.ProcessObject):
         
 if __name__ == "__main__":
     key = cv2.waitKey(10)
+    image_dir = "images_100"
+    images = sorted(glob.glob("%s/*.npy" % image_dir))
+    fileStackReader  = FileStackReader(images)
+    print images
+    display = Display(fileStackReader.getOutput())
     while key != 27:
         fileStackReader.increment()
         #print fileStackReader.getFrameName()
-        display1.update()
-        #display2.update()
-        #display3.update()
+        display.update()
         cv2.waitKey(10)
