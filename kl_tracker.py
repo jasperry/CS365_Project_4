@@ -1,14 +1,8 @@
 from scipy import ndimage
 import cv
 import cv2
-import glob
-import imgutil
 import numpy
-import optparse
-import os
 import pipeline
-import shelve
-import source
 
 
 class HarrisDetection(pipeline.ProcessObject):
@@ -95,7 +89,7 @@ class StructureTensor(pipeline.ProcessObject):
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
     
-     def generateData(self):
+    def generateData(self):
         input = self.getInput(0).getData().astype(numpy.float32)
          
         Ix = ndimage.filters.gaussian_filter1d(input, self.sigma_D, 0, 0)
@@ -137,9 +131,9 @@ class Display(pipeline.ProcessObject):
 if __name__ == "__main__":
     key = cv2.waitKey(10)
     while key != 27:
-      fileStackReader.increment()
-      #print fileStackReader.getFrameName()
-      display1.update()
-      #display2.update()
-      #display3.update()
-      cv2.waitKey(10)
+        fileStackReader.increment()
+        #print fileStackReader.getFrameName()
+        display1.update()
+        #display2.update()
+        #display3.update()
+        cv2.waitKey(10)
