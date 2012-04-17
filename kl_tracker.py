@@ -15,8 +15,7 @@ from scipy import ndimage
 class HarrisDetection(pipeline.ProcessObject):
     
     def __init__(self, input = None, sigmaD=1.0, sigmaI=1.5, numFeatures = 100):
-        pipeline.ProcessObject.__init__(self, input)
-        self.setOutputCount(2)
+        pipeline.ProcessObject.__init__(self, input, outputCount = 2)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
         self.numFeatures = numFeatures
@@ -26,7 +25,6 @@ class HarrisDetection(pipeline.ProcessObject):
         
         
         imgH = (Ixx * Iyy - Ixy**2) / (Ixx + Iyy + 1e-8)
-        self.getOutput(0).setData(input)
             
         # exclude points near the image border
         imgH[:16, :] = 0
@@ -48,15 +46,35 @@ class HarrisDetection(pipeline.ProcessObject):
             
         #add together
         features = numpy.vstack((xx, yy, imgH.flatten()[sortIdx])).transpose()
+        self.getOutput(0).setData(input)
         self.getOutput(1).setData(features)
         
     
 
+'''
+Basic implementation of the KLT Tracker discussed in shi & tomasi
 
+'''
 class KLTracker(pipeline.ProcessObject):
     
-    def __init__(self, input = None):
-        pipeline.ProcessObject.__init__(self, input)
+    def __init__(self, ik = None, ikplusone = None, features = None, tensor = None):
+        pipeline.ProcessObject.__init__(self, ik, 4)
+        self.setInput(ikplusone, 1)
+        self.setInput(features, 2)
+        self.setInput(tensor, 3)
+    
+    def generateData(self):
+    	Ik = self.getInput(0).getData()
+    	Ikplusone = self.getInput(1).getData()
+    	features = self.getInput(2).getData()
+    	Ixx, Iyy, Ixy = self.getInput(3).getData()
+    	
+    	
+    	
+    	
+    	
+    	
+        
         
 
         
@@ -64,8 +82,7 @@ class KLTracker(pipeline.ProcessObject):
 class StructureTensor(pipeline.ProcessObject):
 
     def __init__(self, input = None, sigmaD=1.0, sigmaI=1.5):
-        pipeline.ProcessObject.__init__(self, input)
-        self.setOutputCount(2)
+        pipeline.ProcessObject.__init__(self, input, outputCount = 2)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
     
