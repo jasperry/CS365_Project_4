@@ -55,13 +55,13 @@ Basic implementation of the KLT Tracker discussed in shi & tomasi
 '''
 class KLTracker(pipeline.ProcessObject):
     
-    def __init__(self, ik = None, ikplusone = None, features = None, tensor = None,
-            patchn = 5, ):
+    def __init__(self, i0 = None, i1 = None, features = None, tensor = None, spdev = None ):
             
-        pipeline.ProcessObject.__init__(self, ik, 4)
+        pipeline.ProcessObject.__init__(self, ik, 5)
         self.setInput(ikplusone, 1)
         self.setInput(features, 2)
         self.setInput(tensor, 3)
+        self.setInput(spdev, 4)
         self.frame = 0
     
     def generateData(self):
@@ -69,35 +69,50 @@ class KLTracker(pipeline.ProcessObject):
         I1 = self.getInput(1).getData()
         features = self.getInput(2).getData()
         Ixx, Iyy, Ixy = self.getInput(3).getData()
+        Ix, Iy = self.getInput(4).getData()
         It = Ikplusone - Ik
         
+        #loop through features
         for i in range(features.shape[0]):
+        	# if the feature is active
             if features[i,3] == True:
-            	#pull x and y from the feature
+                #pull x and y from the feature
                 y = features[i,0]
                 x = features[i,1]
                 
                 #compute A^T*A
                 A = numpy.matrix([[Ixx,Ixy],[Ixy, Iyy]])
                 
-                count = 0
-                '''
-                while count < 5
-                #start with a single iteration
+                
                 # hardcode sigmaI right in there(#djykstrawouldntlikeit)
                 g = imgutil.gaussian(1.5)
                 gg = numpy.dot(g.transpose(),g).flatten() 
                 r = g.size/2
                 
-                iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
-                ryy = iyy + y
-                rxx = ixx +x
+                count = 0
                 
-                patchcoords  = numpy.vstack((ryy.flatten(), rxx.flatten()))
+                while count < 5:
+                    
+                    
+                    #create x, y pairs for the patch
+                    iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
+                    ryy = iyy + y
+                    rxx = ixx +x
+                    patchcoords  = numpy.vstack((ryy.flatten(), rxx.flatten()))
+                    
+                    
+                    patchI1 = interpolation.map_coordinates(I1, patchcoords)
+                    patchI0 = interpolation.map_coordinates(I0, patchcoords)
+                    patchIx = interpolation.map_coordinates(Ix, patchcoords)
+                    patchIy = interpolation.map_coordinates(Ix, patchcoords)
+                    
+                    
+                    patchIt = patchI1 - patchI0
+                    GIxIt = (patchIt * patchIx * gg).sum()
+                    GIyIt = (patchIt * patchIy * gg).sum()
+                    
+                    
                 
-                patchI1 = interpolation.map_coordinates(I, (ryy, rxx))
-                patchIt = patch
-                '''
                 
         
 
@@ -116,7 +131,7 @@ class DisplayLabeled(pipeline.ProcessObject):
 class StructureTensor(pipeline.ProcessObject):
 
     def __init__(self, input = None, sigmaD=1.0, sigmaI=1.5):
-        pipeline.ProcessObject.__init__(self, input, outputCount = 2)
+        pipeline.ProcessObject.__init__(self, input, outputCount = 3)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
     
@@ -138,6 +153,7 @@ class StructureTensor(pipeline.ProcessObject):
         
         self.getOutput(0).setData(input)
         self.getOutput(1).setData((Ixx,Iyy,Ixy))
+        self.getOutput(2).setData((Ix,Iy))
         
 
 class Display(pipeline.ProcessObject):
