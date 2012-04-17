@@ -11,7 +11,7 @@ from source  import FileStackReader
 
 class HarrisDetection(pipeline.ProcessObject):
     
-    def __init__(self, input = None, sigmaD=1.0, sigmaI=1.5, numFeatures = 100):
+    def __init__(self, input=None, sigmaD=1.0, sigmaI=1.5, numFeatures=100):
         pipeline.ProcessObject.__init__(self, input, outputCount = 2)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
@@ -44,6 +44,7 @@ class HarrisDetection(pipeline.ProcessObject):
             
         #add together
         features = numpy.vstack((xx, yy, imgH.flatten()[sortIdx])).transpose()
+        print "Harris input: %s" % str(input)
         self.getOutput(0).setData(input)
         self.getOutput(1).setData(features)
         
@@ -180,10 +181,11 @@ class StructureTensor(pipeline.ProcessObject):
     
     def generateData(self):
         input = self.getInput(0).getData().astype(numpy.float32)
+        grayscale = input[..., 1]
          
-        Ix = ndimage.filters.gaussian_filter1d(input, self.sigma_D, 0, 0)
+        Ix = ndimage.filters.gaussian_filter1d(grayscale, self.sigma_D, 0, 0)
         Ix = ndimage.filters.gaussian_filter1d(Ix, self.sigma_D, 1, 1)
-        Iy = ndimage.filters.gaussian_filter1d(input, self.sigma_D, 1, 0)
+        Iy = ndimage.filters.gaussian_filter1d(grayscale, self.sigma_D, 1, 0)
         Iy = ndimage.filters.gaussian_filter1d(Iy, self.sigma_D, 0, 1)
         
         
