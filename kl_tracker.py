@@ -57,25 +57,32 @@ class KLTracker(pipeline.ProcessObject):
     
     def __init__(self, i0 = None, i1 = None, features = None, tensor = None, spdev = None ):
             
-        pipeline.ProcessObject.__init__(self, ik, 5)
+        pipeline.ProcessObject.__init__(self, ik, 5,2) # 5 inputs, 2 outputs
         self.setInput(ikplusone, 1)
         self.setInput(features, 2)
         self.setInput(tensor, 3)
         self.setInput(spdev, 4)
         self.frame = 0
+        self.framelist = []
     
     def generateData(self):
+    
+    
         I0 = self.getInput(0).getData()
         I1 = self.getInput(1).getData()
-        features = self.getInput(2).getData()
+        features = self.getInput(2).getData() # new features every time?
         Ixx, Iyy, Ixy = self.getInput(3).getData()
         Ix, Iy = self.getInput(4).getData()
-        It = Ikplusone - Ik
+        
+        
+        # new frame to put this feature data in
+        newFrame = numpy.zeros(features.shape)
+        
         
         #loop through features
         for i in range(features.shape[0]):
-        	# if the feature is active
-            if features[i,3] == True:
+            # if the feature is active
+            if features[i,2] == 1:
                 #pull x and y from the feature
                 y = features[i,0]
                 x = features[i,1]
@@ -93,6 +100,7 @@ class KLTracker(pipeline.ProcessObject):
                 U, V = 0
                 
                 # iterates to find the temporal derivative multiple times
+                #change to have distance threshold as opposed to simple number iterations
                 while count < 5:
                     
                     
@@ -114,20 +122,39 @@ class KLTracker(pipeline.ProcessObject):
                     GIxIt = (patchIt * patchIx * gg).sum()
                     GIyIt = (patchIt * patchIy * gg).sum()
                     ATb = numpy.matrix([[GixIt],
-                    					[GiyIt]])
+                                        [GiyIt]])
                     
                     #solve for Av = ATb
-                	duv = numpy.linalg.lstsq(A, ATb)
-                	
-                	
-                	U = U + duv[0]
-                	V = v + duv[1]
-                	
-                	count = count + 1
+                    duv = numpy.linalg.lstsq(A, ATb)
+                    
+                    
+                    U = U + duv[0]
+                    V = v + duv[1]
+                    
+                    count = count + 1
                 
+                #update X and Y positions for object
+                newX = x + U
+                newY = y + V
+                
+                
+                #if feature is still in frame, keep as active
+                active = 0
+                if newX < I1.shape[1] and newY < I1.shape[0]:
+                    active = 1
+        
+                newFrame[i]  = np.array([newX, newY, active])
                 
         
-
+        
+        self.framelist.append(newFrame)     
+        self.getOutput().setData(I1)
+        self.getOutput(1).setData(newFrame)
+        
+        
+        #returns the frame list for use plotting, etc
+        def getFrameList(self):
+            return self.framelist
         
 class DisplayLabeled(pipeline.ProcessObject):
     def __init__(self, input = None, features = None):
