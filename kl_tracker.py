@@ -11,8 +11,8 @@ from source  import FileStackReader
 
 class HarrisDetection(pipeline.ProcessObject):
     
-    def __init__(self, input=None, sigmaD=1.0, sigmaI=1.5, numFeatures=100):
-        pipeline.ProcessObject.__init__(self, input, outputCount = 2)
+    def __init__(self, inpt=None, sigmaD=1.0, sigmaI=1.5, numFeatures=100):
+        pipeline.ProcessObject.__init__(self, inpt, outputCount = 2)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
         self.numFeatures = numFeatures
@@ -44,8 +44,8 @@ class HarrisDetection(pipeline.ProcessObject):
             
         #add together
         features = numpy.vstack((xx, yy, imgH.flatten()[sortIdx])).transpose()
-        print "Harris input: %s" % str(input)
-        self.getOutput(0).setData(input)
+        print "Harris input: %s" % str(inpt)
+        self.getOutput(0).setData(inpt)
         self.getOutput(1).setData(features)
         
     
@@ -162,26 +162,26 @@ class KLTracker(pipeline.ProcessObject):
             return self.framelist
         
 class DisplayLabeled(pipeline.ProcessObject):
-    def __init__(self, input = None, features = None):
-        pipeline.ProcessObject.__init__(self, input, 2)
+    def __init__(self, inpt = None, features = None):
+        pipeline.ProcessObject.__init__(self, inpt, 2)
         self.setInput(features, 1)
         
     def generateData(self):
-        input = self.getInput(0).getData()
+        inpt = self.getInput(0).getData()
         features = self.getInput(1).getData()
 
         
 #returns a tuple of the components of the structure tensor
 class StructureTensor(pipeline.ProcessObject):
 
-    def __init__(self, input = None, sigmaD=1.0, sigmaI=1.5):
-        pipeline.ProcessObject.__init__(self, input, outputCount = 3)
+    def __init__(self, inpt = None, sigmaD=1.0, sigmaI=1.5):
+        pipeline.ProcessObject.__init__(self, inpt, outputCount = 3)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
     
     def generateData(self):
-        input = self.getInput(0).getData().astype(numpy.float32)
-        grayscale = input[..., 1]
+        inpt = self.getInput(0).getData().astype(numpy.float32)
+        grayscale = inpt[..., 1]
          
         Ix = ndimage.filters.gaussian_filter1d(grayscale, self.sigma_D, 0, 0)
         Ix = ndimage.filters.gaussian_filter1d(Ix, self.sigma_D, 1, 1)
@@ -196,28 +196,28 @@ class StructureTensor(pipeline.ProcessObject):
         Ixy = ndimage.filters.gaussian_filter1d(Ix * Iy, self.sigma_I, 0,0)
         Ixy = ndimage.filters.gaussian_filter1d(Ixy, self.sigma_I, 1, 1)
         
-        self.getOutput(0).setData(input)
+        self.getOutput(0).setData(inpt)
         self.getOutput(1).setData((Ixx,Iyy,Ixy))
         self.getOutput(2).setData((Ix,Iy))
         
 
 class Display(pipeline.ProcessObject):
     
-    def __init__(self, input = None, name = "pipeline"):
-        pipeline.ProcessObject.__init__(self, input)
+    def __init__(self, inpt = None, name = "pipeline"):
+        pipeline.ProcessObject.__init__(self, inpt)
         cv2.namedWindow(name, cv.CV_WINDOW_NORMAL)
         self.name = name
         
     def generateData(self):
-        input = self.getInput(0).getData()
+        inpt = self.getInput(0).getData()
         # output here so channels don't get flipped
-        self.getOutput(0).setData(input)
+        self.getOutput(0).setData(inpt)
 
         # Convert back to OpenCV BGR from RGB
-        if input.ndim == 3 and input.shape[2] == 3:
-            input = input[..., ::-1]
+        if inpt.ndim == 3 and inpt.shape[2] == 3:
+            inpt = inpt[..., ::-1]
         
-        cv2.imshow(self.name, input.astype(numpy.uint8))
+        cv2.imshow(self.name, inpt.astype(numpy.uint8))
 
     def destroy(self):
         cv2.destroyWindow(self.name)
