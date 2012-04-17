@@ -60,16 +60,39 @@ class KLTracker(pipeline.ProcessObject):
         self.frame = 0
     
     def generateData(self):
-        Ik = self.getInput(0).getData()
-        Ikplusone = self.getInput(1).getData()
+        I0 = self.getInput(0).getData()
+        I1 = self.getInput(1).getData()
         features = self.getInput(2).getData()
         Ixx, Iyy, Ixy = self.getInput(3).getData()
         It = Ikplusone - Ik
         
         for i in range(features.shape[0]):
-            if features[i,3,self.frame] == True:
-                pass
-        return
+            if features[i,3] == True:
+            	#pull x and y from the feature
+                y = features[i,0]
+                x = features[i,1]
+                
+                #compute A^T*A
+                A = numpy.matrix([[Ixx,Ixy],[Ixy, Iyy]])
+                
+                count = 0
+                while count < 5
+                #start with a single iteration
+                # hardcode sigmaI right in there(#djykstrawouldntlikeit)
+                g = imgutil.gaussian(1.5)
+                gg = numpy.dot(g.transpose(),g).flatten() 
+                r = g.size/2
+                
+                iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
+                ryy = iyy + y
+                rxx = ixx +x
+                
+                patchcoords  = numpy.vstack((ryy.flatten(), rxx.flatten()))
+                
+                patchI1 = interpolation.map_coordinates(I, (ryy, rxx))
+                patchIt = patch
+                
+        
 
         
 class DisplayLabeled(pipeline.ProcessObject):
