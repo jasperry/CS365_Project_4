@@ -48,7 +48,6 @@ class HarrisDetection(pipeline.ProcessObject):
         self.getOutput(0).setData(inpt)
         self.getOutput(1).setData(features)
         
-    
 
 '''
 Basic implementation of the KLT Tracker discussed in Shi & Tomasi
@@ -72,17 +71,14 @@ class KLTracker(pipeline.ProcessObject):
     
     def generateData(self):
     
-    
         I0 = self.getInput(0).getData()
         I1 = self.getInput(1).getData()
         features = self.getInput(2).getData() # new features every time?
         Ixx, Iyy, Ixy = self.getInput(3).getData()
         Ix, Iy = self.getInput(4).getData()
         
-        
         # new frame to put this feature data in
         newFrame = numpy.zeros(features.shape)
-        
         
         #loop through features
         for i in range(features.shape[0]):
@@ -94,7 +90,6 @@ class KLTracker(pipeline.ProcessObject):
                 
                 #compute A^T*A
                 A = numpy.matrix([[Ixx,Ixy],[Ixy, Iyy]])
-                
                 
                 # hardcode sigmaI right in there(#djykstrawouldntlikeit)
                 g = imgutil.gaussian(1.5)
@@ -108,13 +103,11 @@ class KLTracker(pipeline.ProcessObject):
                 #change to have distance threshold as opposed to simple number iterations
                 while count < 5:
                     
-                    
                     #create x, y pairs for the patch
                     iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
                     ryy = iyy + y
                     rxx = ixx +x
                     patchcoords  = numpy.vstack((ryy.flatten(), rxx.flatten()))
-                    
                     
                     #grab patches from each of the Images
                     patchI1 = interpolation.map_coordinates(I1, patchcoords)
@@ -132,7 +125,6 @@ class KLTracker(pipeline.ProcessObject):
                     #solve for Av = ATb
                     duv = numpy.linalg.lstsq(A, ATb)
                     
-                    
                     U = U + duv[0]
                     V = v + duv[1]
                     
@@ -142,20 +134,17 @@ class KLTracker(pipeline.ProcessObject):
                 newX = x + U
                 newY = y + V
                 
-                
                 #if feature is still in frame, keep as active
                 active = 0
                 if newX < I1.shape[1] and newY < I1.shape[0]:
                     active = 1
         
                 newFrame[i]  = np.array([newX, newY, active])
-                
         
         
         self.framelist.append(newFrame)     
         self.getOutput().setData(I1)
         self.getOutput(1).setData(newFrame)
-        
         
         #returns the frame list for use plotting, etc
         def getFrameList(self):
@@ -188,7 +177,6 @@ class StructureTensor(pipeline.ProcessObject):
         Iy = ndimage.filters.gaussian_filter1d(grayscale, self.sigma_D, 1, 0)
         Iy = ndimage.filters.gaussian_filter1d(Iy, self.sigma_D, 0, 1)
         
-        
         Ixx = ndimage.filters.gaussian_filter1d(Ix**2, self.sigma_I, 0, 0)
         Ixx = ndimage.filters.gaussian_filter1d(Ixx, self.sigma_I, 1, 1)
         Iyy = ndimage.filters.gaussian_filter1d(Iy**2, self.sigma_I, 0, 0)
@@ -200,7 +188,6 @@ class StructureTensor(pipeline.ProcessObject):
         self.getOutput(1).setData((Ixx,Iyy,Ixy))
         self.getOutput(2).setData((Ix,Iy))
         
-
 class Display(pipeline.ProcessObject):
     
     def __init__(self, inpt = None, name = "pipeline"):
@@ -222,8 +209,6 @@ class Display(pipeline.ProcessObject):
     def destroy(self):
         cv2.destroyWindow(self.name)
 
-        
-        
 if __name__ == "__main__":
     key = None
     image_dir = "images_100"
