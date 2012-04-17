@@ -122,6 +122,8 @@ class KLTracker(pipeline.ProcessObject):
                 	
                 	U = U + duv[0]
                 	V = v + duv[1]
+                	
+                	count = count + 1
                 
                 
         
