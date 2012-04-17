@@ -90,7 +90,9 @@ class KLTracker(pipeline.ProcessObject):
                 r = g.size/2
                 
                 count = 0
+                U, V = 0
                 
+                # iterates to find the temporal derivative multiple times
                 while count < 5:
                     
                     
@@ -101,17 +103,25 @@ class KLTracker(pipeline.ProcessObject):
                     patchcoords  = numpy.vstack((ryy.flatten(), rxx.flatten()))
                     
                     
+                    #grab patches from each of the Images
                     patchI1 = interpolation.map_coordinates(I1, patchcoords)
                     patchI0 = interpolation.map_coordinates(I0, patchcoords)
                     patchIx = interpolation.map_coordinates(Ix, patchcoords)
                     patchIy = interpolation.map_coordinates(Ix, patchcoords)
                     
-                    
+                    #calculate It and a new ATb
                     patchIt = patchI1 - patchI0
                     GIxIt = (patchIt * patchIx * gg).sum()
                     GIyIt = (patchIt * patchIy * gg).sum()
+                    ATb = numpy.matrix([[GixIt],
+                    					[GiyIt]])
                     
-                    
+                    #solve for Av = ATb
+                	duv = numpy.linalg.lstsq(A, ATb)
+                	
+                	
+                	U = U + duv[0]
+                	V = v + duv[1]
                 
                 
         
