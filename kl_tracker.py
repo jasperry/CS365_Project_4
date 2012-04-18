@@ -11,7 +11,9 @@ import glob
 import numpy
 from scipy import ndimage
 from scipy.ndimage import filters
+from scipy.ndimage import interpolation
 
+import imgutil
 import pipeline
 from source  import FileStackReader
 
@@ -83,7 +85,7 @@ class KLTracker(pipeline.ProcessObject):
             tensor, and spatial derivatives from the tensor.
         """
             
-        pipeline.ProcessObject.__init__(self, I, 4,2) # 5 inputs, 2 outputs
+        pipeline.ProcessObject.__init__(self, I, 4,2) # 4 inputs, 2 outputs
         self.setInput(features, 1)
         self.setInput(tensor, 2)
         self.setInput(spdev, 3)
@@ -92,6 +94,8 @@ class KLTracker(pipeline.ProcessObject):
         self.framelist = []
     
     def generateData(self):
+    
+    	print "On frame %d"%(self.frame_number)
         
         #first frame setup
         if self.last_frame == None:
@@ -119,63 +123,75 @@ class KLTracker(pipeline.ProcessObject):
             #loop through features
             for i in range(features.shape[0]):
                 # if the feature is active
-                if features[i,2] == 1:
+                if features[i,2] > 0:
                     #pull x and y from the feature
-                    y = features[i,0]
-                    x = features[i,1]
+                    x = features[i,0]
+                    y = features[i,1]
+                    
+                    print 
                     
                     #compute A^T*A
-                    A = numpy.matrix([[Ixx,Ixy],[Ixy, Iyy]])
+                    A = numpy.matrix([[Ixx[y,x],Ixy[y,x]],
+                                      [Ixy[y,x],Iyy[y,x]]])
                     
                     # hardcode sigmaI right in there(#djykstrawouldntlikeit)
-                    g = imgutil.gaussian(1.5)
-                    gg = numpy.dot(g.transpose(),g).flatten() 
+                    g= imgutil.gaussian(1.5)[0]
+                    gg = numpy.dot(g, g.transpose()).flatten() 
                     r = g.size/2
                     
-                    count = 0
-                    U, V = 0
+                     #create x, y pairs for the patch
+                    iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
+                    ryy = y + iyy
+                    rxx = x + ixx
+                    
+                    
+                    patchIx = interpolation.map_coordinates(Ix, numpy.array([ryy.flatten(), rxx.flatten()]))
+                    patchIy = interpolation.map_coordinates(Iy, numpy.array([ryy.flatten(), rxx.flatten()]))
+                    
+                    
+                    iterations = 5
+                    U = 0
+                    V = 0
                     
                     # iterates to find the temporal derivative multiple times
                     #change to have distance threshold as opposed to simple number iterations
-                    while count < 5:
+                    while iterations > 0:
                         
-                        #create x, y pairs for the patch
-                        iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
-                        ryy = iyy + y
-                        rxx = ixx +x
-                        patchcoords  = numpy.vstack((ryy.flatten(), rxx.flatten()))
+                        
                         
                         #grab patches from each of the Images
-                        patchI1 = interpolation.map_coordinates(I1, patchcoords)
-                        patchI0 = interpolation.map_coordinates(I0, patchcoords)
-                        patchIx = interpolation.map_coordinates(Ix, patchcoords)
-                        patchIy = interpolation.map_coordinates(Ix, patchcoords)
+                        patchI1 = interpolation.map_coordinates(I1[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
+                        patchI0 = interpolation.map_coordinates(I0[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
+                        
                         
                         #calculate It and a new ATb
                         patchIt = patchI1 - patchI0
                         GIxIt = (patchIt * patchIx * gg).sum()
                         GIyIt = (patchIt * patchIy * gg).sum()
-                        ATb = numpy.matrix([[GixIt],
-                                            [GiyIt]])
+                        ATb = numpy.matrix([[GIxIt],
+                                            [GIyIt]])
                         
                         #solve for Av = ATb
-                        duv = numpy.linalg.lstsq(A, ATb)
+                        duv = numpy.linalg.lstsq(A, ATb)[0]
                         
                         U = U + duv[0]
-                        V = v + duv[1]
+                        V = V + duv[1]
                         
-                        count += 1
+                        
+                        
+                        iterations -= 1
                     
                     #update X and Y positions for object
                     newX = x + U
                     newY = y + V
                     
+                    
                     #if feature is still in frame, keep as active
-                    active = 0
-                    if newX < I1.shape[1] and newY < I1.shape[0]:
-                        active = 1
-            
-                    newFrame[i]  = np.array([newX, newY, active])
+                    active = 1
+                    if newX > I1.shape[1] or newY > I1.shape[0]:
+                        active = 0
+                        
+                    newFrame[i]  = numpy.array([newX, newY, active])
             
             
             self.framelist.append(newFrame)     
