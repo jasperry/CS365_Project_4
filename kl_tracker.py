@@ -109,7 +109,7 @@ class KLTracker(pipeline.ProcessObject):
     
     def generateData(self):
     
-    	print "On frame %d"%(self.frame_number)
+        print "On frame %d"%(self.frame_number)
         
         #first frame setup
         if self.last_frame == None:
@@ -175,6 +175,7 @@ class KLTracker(pipeline.ProcessObject):
                         
                         
                         #grab patches from each of the Images
+                        #TODO: no need to grayscale manually here
                         patchI1 = interpolation.map_coordinates(I1[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
                         patchI0 = interpolation.map_coordinates(self.last_frame[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
                         
@@ -234,7 +235,7 @@ class DisplayLabeled(pipeline.ProcessObject):
         """
             For each feature, draw a rectangle around its x,y point.
         """
-        inpt = numpy.copy(self.getInput(0).getData()) # TODO: numpy copy here
+        inpt = numpy.copy(self.getInput(0).getData())
         features = self.getInput(1).getData()
 
         box_color = (255, 0, 0) # red
@@ -246,6 +247,22 @@ class DisplayLabeled(pipeline.ProcessObject):
         self.getOutput(0).setData(inpt)
 
         
+class Grayscale(pipeline.ProcessObject):
+    """
+        Convert a color image to grayscale
+    """
+    def __init__(self, inpt=None):
+        pipeline.ProcessObject.__init__(self, inpt)
+        
+    def generateData(self):
+        inpt = self.getInput(0).getData()
+        
+        if inpt.ndim == 3 and inpt.shape[2] == 3:
+            output = inpt[...,0]*0.114 + inpt[...,1]*0.587 + inpt[...,2]*0.229
+
+        self.getOutput(0).setData(output)
+
+        
 #returns a tuple of the components of the structure tensor
 class StructureTensor(pipeline.ProcessObject):
 
@@ -255,12 +272,11 @@ class StructureTensor(pipeline.ProcessObject):
         self.sigma_I = sigmaI
     
     def generateData(self):
-        inpt = self.getInput(0).getData().astype(numpy.float32)
-        grayscale = inpt[..., 1]
+        inpt = self.getInput(0).getData()
          
-        Ix = ndimage.filters.gaussian_filter1d(grayscale, self.sigma_D, 0, 0)
+        Ix = ndimage.filters.gaussian_filter1d(inpt, self.sigma_D, 0, 0)
         Ix = ndimage.filters.gaussian_filter1d(Ix, self.sigma_D, 1, 1)
-        Iy = ndimage.filters.gaussian_filter1d(grayscale, self.sigma_D, 1, 0)
+        Iy = ndimage.filters.gaussian_filter1d(inpt, self.sigma_D, 1, 0)
         Iy = ndimage.filters.gaussian_filter1d(Iy, self.sigma_D, 0, 1)
         
         Ixx = ndimage.filters.gaussian_filter1d(Ix**2, self.sigma_I, 0, 0)
@@ -296,21 +312,28 @@ class Display(pipeline.ProcessObject):
         cv2.destroyWindow(self.name)
 
 def main():
+    """
+        Obtain a time sequence of microscope slides, track the stage's movement
+        by tracking image movement.
+    """
     key = None
     image_dir = "images_100"
     images = sorted(glob.glob("%s/*.npy" % image_dir))
     fileStackReader  = FileStackReader(images)
 
-    tensor = StructureTensor(fileStackReader.getOutput())
+    grayscale = Grayscale(fileStackReader.getOutput())
+
+    tensor = StructureTensor(grayscale.getOutput())
     harris = HarrisDetection(tensor.getOutput(1)) # pass Harris the tensor
-    #display = Display(fileStackReader.getOutput()) # display the raw image
 
     labeled = DisplayLabeled(fileStackReader.getOutput(), harris.getOutput(1))
     display = Display(labeled.getOutput(), "Harris")
     
+    # NOTE/TODO: tensor output is no longer color
     tracker = KLTracker(fileStackReader.getOutput(), harris.getOutput(1),
                         tensor.getOutput(1), tensor.getOutput(2))
                         
+    # Displays color outputs
     track_labeled = DisplayLabeled(fileStackReader.getOutput(), tracker.getOutput(1))
     display2 = Display(track_labeled.getOutput(), "Tracking" )
     
@@ -325,6 +348,7 @@ def main():
         capture_time = int(fileStackReader.getFrameName())
         print "  +%ims" % (capture_time - start_time)
 
+        # Update all the pipeline objects
         tensor.update()
         harris.update()
         display.update()
@@ -333,8 +357,10 @@ def main():
         track_labeled.update()
         display2.update()
 
+        # Save the keypress (make sure converted to byte size)
         key = cv2.waitKey(10)
         key &= 255
+
     display.destroy()
     display2.destroy()
 
