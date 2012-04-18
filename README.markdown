@@ -5,7 +5,8 @@ saved in the numpy image format, which is highly uncompressed.
 
 So, not all of the images used in this project are online. However, two tarballs
 contain images that should demonstrate functionality:
-  * images.tar.gz - images of a slide as the stage is being adjusted
-  * pond3.tar.gz - images of organisms in pond water
+
+ - images.tar.gz - images of a slide as the stage is being adjusted
+ - pond3.tar.gz - images of organisms in pond water
 
 To use the images, simply extract the tarball to the working directory.
