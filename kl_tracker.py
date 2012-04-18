@@ -176,8 +176,8 @@ class KLTracker(pipeline.ProcessObject):
                         
                         #grab patches from each of the Images
                         #TODO: no need to grayscale manually here
-                        patchI1 = interpolation.map_coordinates(I1[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
-                        patchI0 = interpolation.map_coordinates(self.last_frame[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
+                        patchI1 = interpolation.map_coordinates(I1, numpy.array([ryy.flatten(), rxx.flatten()]))
+                        patchI0 = interpolation.map_coordinates(self.last_frame, numpy.array([ryy.flatten(), rxx.flatten()]))
                         
                         
                         #calculate It and a new ATb
@@ -330,7 +330,7 @@ def main():
     display = Display(labeled.getOutput(), "Harris")
     
     # NOTE/TODO: tensor output is no longer color
-    tracker = KLTracker(fileStackReader.getOutput(), harris.getOutput(1),
+    tracker = KLTracker(grayscale.getOutput(), harris.getOutput(1),
                         tensor.getOutput(1), tensor.getOutput(2))
                         
     # Displays color outputs
