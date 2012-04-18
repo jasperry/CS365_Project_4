@@ -1,4 +1,7 @@
 CS365 Project 4: Tracking
+=========================
+
+David Cain and Justin Sperry
 
 This project relies on still images taken from a microscope. The images are
 saved in the numpy image format, which is highly uncompressed.
