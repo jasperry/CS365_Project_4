@@ -1,9 +1,16 @@
-from scipy import ndimage
-from scipy.ndimage import filters
+#!/usr/bin/env python
+
+# David Cain
+# Justin Sperry
+# 2012-04-17
+# CS365, Brian Eastwood
+
 import cv
 import cv2
 import glob
 import numpy
+from scipy import ndimage
+from scipy.ndimage import filters
 
 import pipeline
 from source  import FileStackReader
