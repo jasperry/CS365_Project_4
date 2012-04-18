@@ -156,7 +156,7 @@ class DisplayLabeled(pipeline.ProcessObject):
         self.setInput(features, 1)
 
     def generateData(self):
-        inpt = self.getInput(0).getData() # TODO: numpy copy here
+        inpt = numpy.copy(self.getInput(0).getData()) # TODO: numpy copy here
         features = self.getInput(1).getData()
 
         box_color = (255, 0, 0) # red
@@ -217,27 +217,38 @@ class Display(pipeline.ProcessObject):
     def destroy(self):
         cv2.destroyWindow(self.name)
 
-if __name__ == "__main__":
+def main():
     key = None
     image_dir = "images_100"
     images = sorted(glob.glob("%s/*.npy" % image_dir))
     fileStackReader  = FileStackReader(images)
+
     tensor = StructureTensor(fileStackReader.getOutput())
     harris = HarrisDetection(tensor.getOutput(1)) # pass Harris the tensor
     #display = Display(fileStackReader.getOutput()) # display the raw image
 
-    display = DisplayLabeled(fileStackReader.getOutput(), harris.getOutput(1))
-    dis = Display(display.getOutput())
+    labeled = DisplayLabeled(fileStackReader.getOutput(), harris.getOutput(1))
+    display = Display(labeled.getOutput())
 
+    # Note the time of the first capture
+    first_frame = fileStackReader.getFrameName()
+    start_time = int(first_frame)
 
     while key != 27:
+        # Print the elapsed time since capture start
         fileStackReader.increment()
-        print fileStackReader.getFrameName()
+        capture_time = int(fileStackReader.getFrameName())
+        print "  +%ims" % (capture_time - start_time)
+
         tensor.update()
         harris.update()
         display.update()
-        dis.update()
+        labeled.update()
 
         key = cv2.waitKey(10)
         key &= 255
     display.destroy()
+
+
+if __name__ == "__main__":
+    main()
