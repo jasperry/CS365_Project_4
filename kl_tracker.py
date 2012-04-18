@@ -27,7 +27,8 @@ class HarrisDetection(pipeline.ProcessObject):
         feature locations and their scores
     """
     
-    def __init__(self, tensor=None, sigmaD=1.0, sigmaI=1.5, numFeatures=100):
+    def __init__(self, tensor=None, sigmaD=1.0, sigmaI=1.5, numFeatures=12,
+            filter_by_mean=False):
         """
             Pass in a tensor, set parameters for corner detection,
             and specify max number of features.
@@ -36,6 +37,7 @@ class HarrisDetection(pipeline.ProcessObject):
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
         self.numFeatures = numFeatures
+        self.filter_by_mean = filter_by_mean
         
     def generateData(self):
         """
@@ -68,18 +70,20 @@ class HarrisDetection(pipeline.ProcessObject):
             
         #add together
         features = numpy.vstack((xx, yy, imgH.flatten()[sortIdx])).transpose()
+        assert len(features) == self.numFeatures
 
-        
+        # Filter out Harris corner strengths that aren't some percentage
+        # of mean strength (if the option was enabled)
+        if self.filter_by_mean:
+            strengths =  features[:,2]
+            print "Mean: %s"  % numpy.mean(strengths)
+            print "Median: %s" % numpy.median(strengths)
+            print "Range: [%.2f-%.2f] " % (numpy.min(strengths), numpy.max(strengths))
 
-        strengths =  features[:,2]
-        print "Mean: %s"  % numpy.mean(strengths)
-        print "Median: %s" % numpy.median(strengths)
-        print "Range: [%.2f-%.2f] " % (numpy.min(strengths), numpy.max(strengths))
+            threshold = numpy.mean(strengths)
 
-        threshold = numpy.mean(strengths)
-
-        features = numpy.array([f for f in features if f[2] > threshold])
-        print "%i features found with threshold %i" % (len(features), threshold)
+            features = numpy.array([f for f in features if f[2] > threshold])
+            print "%i features found with threshold %i" % (len(features), threshold)
 
         # for (x, y, value) in features, tack on the active flag as true
         self.getOutput(0).setData(inpt)
