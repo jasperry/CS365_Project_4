@@ -1,23 +1,45 @@
-from scipy import ndimage
-from scipy.ndimage import filters
+#!/usr/bin/env python
+
+# David Cain
+# Justin Sperry
+# 2012-04-17
+# CS365, Brian Eastwood
+
 import cv
 import cv2
 import glob
 import numpy
+from scipy import ndimage
+from scipy.ndimage import filters
 
 import pipeline
 from source  import FileStackReader
 
 
 class HarrisDetection(pipeline.ProcessObject):
+    """
+        Given an input image, and some adjustment parameters, find the
+        highest-scoring Harris corner features for tracking.
+
+        Outputs two objects- the initial image, and an array of (x,y)
+        feature locations and their scores
+    """
     
-    def __init__(self, inpt=None, sigmaD=1.0, sigmaI=1.5, numFeatures=100):
-        pipeline.ProcessObject.__init__(self, inpt, outputCount = 2)
+    def __init__(self, tensor=None, sigmaD=1.0, sigmaI=1.5, numFeatures=100):
+        """
+            Pass in a tensor, set parameters for corner detection,
+            and specify max number of features.
+        """
+        pipeline.ProcessObject.__init__(self, tensor, outputCount = 2)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
         self.numFeatures = numFeatures
         
     def generateData(self):
+        """
+            Find the highest scoring features for the image, return a
+            sorted array of coordinates and feature scores.
+        """
         inpt = self.getInput(0).getData()#.astype(numpy.float32)
         Ixx, Iyy, Ixy = self.getInput(0).getData()
         
@@ -166,19 +188,25 @@ class KLTracker(pipeline.ProcessObject):
         return self.framelist
         
 class DisplayLabeled(pipeline.ProcessObject):
-    def __init__(self, inpt = None, features = None):
+    """
+        Display the image with features outlined by a red box.
+    """
+    def __init__(self, inpt=None, features=None):
         pipeline.ProcessObject.__init__(self, inpt, inputCount=2)
         self.setInput(features, 1)
 
     def generateData(self):
+        """
+            For each feature, draw a rectangle around its x,y point.
+        """
         inpt = numpy.copy(self.getInput(0).getData()) # TODO: numpy copy here
         features = self.getInput(1).getData()
 
         box_color = (255, 0, 0) # red
         r = 5 # half the width of the rectangle
         for (x, y, val) in features:
-            top_left = ( int(x-r), int(y-r))
-            bottom_right = ( int(x+r), int(y+r))
+            top_left = ( int(x-r), int(y-r) )
+            bottom_right = ( int(x+r), int(y+r) )
             cv2.rectangle(inpt, top_left, bottom_right, box_color, thickness=2)
         self.getOutput(0).setData(inpt)
 
