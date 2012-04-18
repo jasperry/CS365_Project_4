@@ -273,6 +273,10 @@ class Display(pipeline.ProcessObject):
         cv2.destroyWindow(self.name)
 
 def main():
+    """
+        Obtain a time sequence of microscope slides, track the stage's movement
+        by tracking image movement.
+    """
     key = None
     image_dir = "images_100"
     images = sorted(glob.glob("%s/*.npy" % image_dir))
@@ -302,6 +306,7 @@ def main():
         capture_time = int(fileStackReader.getFrameName())
         print "  +%ims" % (capture_time - start_time)
 
+        # Update all the pipeline objects
         tensor.update()
         harris.update()
         display.update()
@@ -310,8 +315,10 @@ def main():
         track_labeled.update()
         display2.update()
 
+        # Save the keypress (make sure converted to byte size)
         key = cv2.waitKey(10)
         key &= 255
+
     display.destroy()
     display2.destroy()
 
