@@ -31,7 +31,6 @@ class HarrisDetection(pipeline.ProcessObject):
         imgH[:, -16:] = 0
 
         #non-max suppression
-        print imgH.shape
         localMax = filters.maximum_filter(imgH, (5,5))
         imgH = imgH * (imgH == localMax)
         
@@ -45,6 +44,7 @@ class HarrisDetection(pipeline.ProcessObject):
             
         #add together
         features = numpy.vstack((xx, yy, imgH.flatten()[sortIdx])).transpose()
+        # for (x, y, value) in features
         self.getOutput(0).setData(inpt)
         self.getOutput(1).setData(features)
         
@@ -152,12 +152,20 @@ class KLTracker(pipeline.ProcessObject):
         
 class DisplayLabeled(pipeline.ProcessObject):
     def __init__(self, inpt = None, features = None):
-        pipeline.ProcessObject.__init__(self, inpt, 2)
+        pipeline.ProcessObject.__init__(self, inpt, inputCount=2)
         self.setInput(features, 1)
-        
+
     def generateData(self):
-        inpt = self.getInput(0).getData()
+        inpt = self.getInput(0).getData() # TODO: numpy copy here
         features = self.getInput(1).getData()
+
+        box_color = (255, 0, 0) # red
+        r = 5 # half the width of the rectangle
+        for (x, y, val) in features:
+            top_left = ( int(x-r), int(y-r))
+            bottom_right = ( int(x+r), int(y+r))
+            cv2.rectangle(inpt, top_left, bottom_right, box_color, thickness=2)
+        self.getOutput(0).setData(inpt)
 
         
 #returns a tuple of the components of the structure tensor
@@ -215,16 +223,21 @@ if __name__ == "__main__":
     images = sorted(glob.glob("%s/*.npy" % image_dir))
     fileStackReader  = FileStackReader(images)
     tensor = StructureTensor(fileStackReader.getOutput())
-    harris = HarrisDetection(tensor.getOutput(1))
-    display = Display(harris.getOutput(0)) # 0 is the image itself
+    harris = HarrisDetection(tensor.getOutput(1)) # pass Harris the tensor
+    #display = Display(fileStackReader.getOutput()) # display the raw image
+
+    display = DisplayLabeled(fileStackReader.getOutput(), harris.getOutput(1))
+    dis = Display(display.getOutput())
+
+
     while key != 27:
         fileStackReader.increment()
         print fileStackReader.getFrameName()
         tensor.update()
         harris.update()
         display.update()
+        dis.update()
 
-        print harris.getOutput(1)
         key = cv2.waitKey(10)
         key &= 255
     display.destroy()
