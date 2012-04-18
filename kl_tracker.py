@@ -114,7 +114,7 @@ class KLTracker(pipeline.ProcessObject):
         #first frame setup
         if self.last_frame == None:
             self.last_frame = self.getInput(0).getData()
-            self.framelist.append(self.getInput(1).getData())
+            self.framelist.append(self.getInput(1).getData().astype(numpy.float32))
             self.getOutput(0).setData(self.last_frame)
             self.getOutput(1).setData(self.framelist[0])
         
