@@ -68,9 +68,9 @@ class HarrisDetection(pipeline.ProcessObject):
             
         #add together
         features = numpy.vstack((xx, yy, imgH.flatten()[sortIdx])).transpose()
-        # for (x, y, value) in features
+        # for (x, y, value) in features, tack on the active flag as true
         self.getOutput(0).setData(inpt)
-        self.getOutput(1).setData(features)
+        self.getOutput(1).setData(numpy.hstack((features, numpy.ones((features.shape[0],1)))))
         
 
 '''
@@ -107,11 +107,8 @@ class KLTracker(pipeline.ProcessObject):
         #all others
         else:
         
-            I0 = self.last_frame
             I1 = self.getInput(0).getData()
             
-            #replaces last frame
-            self.last_frame = I1
             
             Ixx, Iyy, Ixy = self.getInput(2).getData()
             Ix, Iy = self.getInput(3).getData()
@@ -120,15 +117,16 @@ class KLTracker(pipeline.ProcessObject):
             # new frame to put this feature data in
             newFrame = numpy.zeros(features.shape)
             
+            num_lost = 0
             #loop through features
             for i in range(features.shape[0]):
                 # if the feature is active
-                if features[i,2] > 0:
+                if features[i,3] > 0:
                     #pull x and y from the feature
                     x = features[i,0]
                     y = features[i,1]
+                    s = features[i,2]
                     
-                    print 
                     
                     #compute A^T*A
                     A = numpy.matrix([[Ixx[y,x],Ixy[y,x]],
@@ -136,6 +134,7 @@ class KLTracker(pipeline.ProcessObject):
                     
                     # hardcode sigmaI right in there(#djykstrawouldntlikeit)
                     g= imgutil.gaussian(1.5)[0]
+                    g = g[:,None]
                     gg = numpy.dot(g, g.transpose()).flatten() 
                     r = g.size/2
                     
@@ -148,28 +147,29 @@ class KLTracker(pipeline.ProcessObject):
                     patchIx = interpolation.map_coordinates(Ix, numpy.array([ryy.flatten(), rxx.flatten()]))
                     patchIy = interpolation.map_coordinates(Iy, numpy.array([ryy.flatten(), rxx.flatten()]))
                     
+                    duv = numpy.array([100.0,100.0]) 
                     
-                    iterations = 5
+                    iterations = 10
+                    epsilon = float('1.0e-3')**2
                     U = 0
                     V = 0
                     
                     # iterates to find the temporal derivative multiple times
                     #change to have distance threshold as opposed to simple number iterations
-                    while iterations > 0:
+                    while iterations > 0 and numpy.dot(duv, duv) > epsilon:
                         
                         
                         
                         #grab patches from each of the Images
                         patchI1 = interpolation.map_coordinates(I1[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
-                        patchI0 = interpolation.map_coordinates(I0[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
+                        patchI0 = interpolation.map_coordinates(self.last_frame[...,1], numpy.array([ryy.flatten(), rxx.flatten()]))
                         
                         
                         #calculate It and a new ATb
                         patchIt = patchI1 - patchI0
                         GIxIt = (patchIt * patchIx * gg).sum()
                         GIyIt = (patchIt * patchIy * gg).sum()
-                        ATb = numpy.matrix([[GIxIt],
-                                            [GIyIt]])
+                        ATb = -numpy.array([GIxIt,GIyIt])
                         
                         #solve for Av = ATb
                         duv = numpy.linalg.lstsq(A, ATb)[0]
@@ -184,20 +184,25 @@ class KLTracker(pipeline.ProcessObject):
                     #update X and Y positions for object
                     newX = x + U
                     newY = y + V
-                    
+                                     
                     
                     #if feature is still in frame, keep as active
                     active = 1
-                    if newX > I1.shape[1] or newY > I1.shape[0]:
+                    if newX > I1.shape[1] or newX < 0 or newY > I1.shape[0] or newY < 0:
                         active = 0
+                        num_lost += 1
                         
-                    newFrame[i]  = numpy.array([newX, newY, active])
+                        
+                    newFrame[i]  = numpy.array([newX, newY, s, active])
             
-            
-            self.framelist.append(newFrame)     
+            print "%d Features lost in frame %d " % (num_lost, self.frame_number)
+            self.framelist.append(newFrame)
+            self.last_frame = I1
             self.getOutput(0).setData(I1)
             self.getOutput(1).setData(newFrame)
         self.frame_number += 1
+        #replaces last frame
+        
         
     #returns the frame list for use plotting, etc
     def getFrameList(self):
@@ -220,7 +225,7 @@ class DisplayLabeled(pipeline.ProcessObject):
 
         box_color = (255, 0, 0) # red
         r = 5 # half the width of the rectangle
-        for (x, y, val) in features:
+        for (x, y, val, a) in features:
             top_left = ( int(x-r), int(y-r) )
             bottom_right = ( int(x+r), int(y+r) )
             cv2.rectangle(inpt, top_left, bottom_right, box_color, thickness=2)
