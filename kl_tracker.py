@@ -66,10 +66,22 @@ class HarrisDetection(pipeline.ProcessObject):
             
         #add together
         features = numpy.vstack((xx, yy, imgH.flatten()[sortIdx])).transpose()
+
+        strengths =  features[:,2]
+        print "Mean: %s"  % numpy.mean(strengths)
+        print "Median: %s" % numpy.median(strengths)
+        print "Range: [%.2f-%.2f] " % (numpy.min(strengths), numpy.max(strengths))
+
+        threshold = numpy.mean(strengths)
+
+        features = numpy.array([f for f in features if f[2] > threshold])
+        print "%i features found with threshold %i" % (len(features), threshold)
+
         # for (x, y, value) in features
         self.getOutput(0).setData(inpt)
         self.getOutput(1).setData(features)
         
+
 
 '''
 Basic implementation of the KLT Tracker discussed in Shi & Tomasi
