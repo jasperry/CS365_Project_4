@@ -173,19 +173,25 @@ class KLTracker(pipeline.ProcessObject):
             return self.framelist
         
 class DisplayLabeled(pipeline.ProcessObject):
-    def __init__(self, inpt = None, features = None):
+    """
+        Display the image with features outlined by a red box.
+    """
+    def __init__(self, inpt=None, features=None):
         pipeline.ProcessObject.__init__(self, inpt, inputCount=2)
         self.setInput(features, 1)
 
     def generateData(self):
+        """
+            For each feature, draw a rectangle around its x,y point.
+        """
         inpt = numpy.copy(self.getInput(0).getData()) # TODO: numpy copy here
         features = self.getInput(1).getData()
 
         box_color = (255, 0, 0) # red
         r = 5 # half the width of the rectangle
         for (x, y, val) in features:
-            top_left = ( int(x-r), int(y-r))
-            bottom_right = ( int(x+r), int(y+r))
+            top_left = ( int(x-r), int(y-r) )
+            bottom_right = ( int(x+r), int(y+r) )
             cv2.rectangle(inpt, top_left, bottom_right, box_color, thickness=2)
         self.getOutput(0).setData(inpt)
 
