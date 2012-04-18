@@ -17,14 +17,29 @@ from source  import FileStackReader
 
 
 class HarrisDetection(pipeline.ProcessObject):
+    """
+        Given an input image, and some adjustment parameters, find the
+        highest-scoring Harris corner features for tracking.
+
+        Outputs two objects- the initial image, and an array of (x,y)
+        feature locations and their scores
+    """
     
-    def __init__(self, inpt=None, sigmaD=1.0, sigmaI=1.5, numFeatures=100):
-        pipeline.ProcessObject.__init__(self, inpt, outputCount = 2)
+    def __init__(self, tensor=None, sigmaD=1.0, sigmaI=1.5, numFeatures=100):
+        """
+            Pass in a tensor, set parameters for corner detection,
+            and specify max number of features.
+        """
+        pipeline.ProcessObject.__init__(self, tensor, outputCount = 2)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
         self.numFeatures = numFeatures
         
     def generateData(self):
+        """
+            Find the highest scoring features for the image, return a
+            sorted array of coordinates and feature scores.
+        """
         inpt = self.getInput(0).getData()#.astype(numpy.float32)
         Ixx, Iyy, Ixy = self.getInput(0).getData()
         
