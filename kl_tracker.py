@@ -176,10 +176,7 @@ class KLTracker(pipeline.ProcessObject):
                     #change to have distance threshold as opposed to simple number iterations
                     while iterations > 0 and numpy.dot(duv, duv) > epsilon:
                         
-                        
-                        
                         #grab patches from each of the Images
-                        #TODO: no need to grayscale manually here
                         patchI1 = interpolation.map_coordinates(I1, numpy.array([ryy.flatten(), rxx.flatten()]))
                         patchI0 = interpolation.map_coordinates(self.last_frame, numpy.array([ryy.flatten(), rxx.flatten()]))
                         
@@ -334,7 +331,6 @@ def main():
     labeled = DisplayLabeled(fileStackReader.getOutput(), harris.getOutput(1))
     display = Display(labeled.getOutput(), "Harris")
     
-    # NOTE/TODO: tensor output is no longer color
     tracker = KLTracker(grayscale.getOutput(), harris.getOutput(1),
                         tensor.getOutput(1), tensor.getOutput(2))
                         
