@@ -55,7 +55,7 @@ Basic implementation of the KLT Tracker discussed in Shi & Tomasi
 '''
 class KLTracker(pipeline.ProcessObject):
     
-    def __init__(self, I=None features=None, tensor=None, spdev=None ):
+    def __init__(self, I=None, features=None, tensor=None, spdev=None ):
         """
             Reads in two frames (i0, i1), Harris corner features, the
             tensor, and spatial derivatives from the tensor.
@@ -70,96 +70,100 @@ class KLTracker(pipeline.ProcessObject):
         self.framelist = []
     
     def generateData(self):
-    	
-    	#first frame setup
-    	if self.last_frame == None:
-    		self.last_frame = self.getInput(0).getData()
-    		self.framelist.append(self.getInput(2).getData())
-    		self.getOutput(0).setData(self.last_frame)
-        	self.getOutput(1).setData(self.framelist[0])
-    	
-    	#all others
-    	else:
-    	
-			I0 = self.last_frame
-			I1 = self.getInput(0).getData()
-			
-			Ixx, Iyy, Ixy = self.getInput(3).getData()
-			Ix, Iy = self.getInput(4).getData()
-			
-			# new frame to put this feature data in
-			newFrame = numpy.zeros(features.shape)
-			
-			#loop through features
-			for i in range(features.shape[0]):
-				# if the feature is active
-				if features[i,2] == 1:
-					#pull x and y from the feature
-					y = features[i,0]
-					x = features[i,1]
-					
-					#compute A^T*A
-					A = numpy.matrix([[Ixx,Ixy],[Ixy, Iyy]])
-					
-					# hardcode sigmaI right in there(#djykstrawouldntlikeit)
-					g = imgutil.gaussian(1.5)
-					gg = numpy.dot(g.transpose(),g).flatten() 
-					r = g.size/2
-					
-					count = 0
-					U, V = 0
-					
-					# iterates to find the temporal derivative multiple times
-					#change to have distance threshold as opposed to simple number iterations
-					while count < 5:
-						
-						#create x, y pairs for the patch
-						iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
-						ryy = iyy + y
-						rxx = ixx +x
-						patchcoords  = numpy.vstack((ryy.flatten(), rxx.flatten()))
-						
-						#grab patches from each of the Images
-						patchI1 = interpolation.map_coordinates(I1, patchcoords)
-						patchI0 = interpolation.map_coordinates(I0, patchcoords)
-						patchIx = interpolation.map_coordinates(Ix, patchcoords)
-						patchIy = interpolation.map_coordinates(Ix, patchcoords)
-						
-						#calculate It and a new ATb
-						patchIt = patchI1 - patchI0
-						GIxIt = (patchIt * patchIx * gg).sum()
-						GIyIt = (patchIt * patchIy * gg).sum()
-						ATb = numpy.matrix([[GixIt],
-											[GiyIt]])
-						
-						#solve for Av = ATb
-						duv = numpy.linalg.lstsq(A, ATb)
-						
-						U = U + duv[0]
-						V = v + duv[1]
-						
-						count += 1
-					
-					#update X and Y positions for object
-					newX = x + U
-					newY = y + V
-					
-					#if feature is still in frame, keep as active
-					active = 0
-					if newX < I1.shape[1] and newY < I1.shape[0]:
-						active = 1
-			
-					newFrame[i]  = np.array([newX, newY, active])
-			
-			
-			self.framelist.append(newFrame)     
-        	self.getOutput(0).setData(I1)
-        	self.getOutput(1).setData(newFrame)
+        
+        #first frame setup
+        if self.last_frame == None:
+            self.last_frame = self.getInput(0).getData()
+            self.framelist.append(self.getInput(1).getData())
+            self.getOutput(0).setData(self.last_frame)
+            self.getOutput(1).setData(self.framelist[0])
+        
+        #all others
+        else:
+        
+            I0 = self.last_frame
+            I1 = self.getInput(0).getData()
+            
+            #replaces last frame
+            self.last_frame = I1
+            
+            Ixx, Iyy, Ixy = self.getInput(2).getData()
+            Ix, Iy = self.getInput(3).getData()
+            
+            features = self.framelist[self.frame_number-1]
+            # new frame to put this feature data in
+            newFrame = numpy.zeros(features.shape)
+            
+            #loop through features
+            for i in range(features.shape[0]):
+                # if the feature is active
+                if features[i,2] == 1:
+                    #pull x and y from the feature
+                    y = features[i,0]
+                    x = features[i,1]
+                    
+                    #compute A^T*A
+                    A = numpy.matrix([[Ixx,Ixy],[Ixy, Iyy]])
+                    
+                    # hardcode sigmaI right in there(#djykstrawouldntlikeit)
+                    g = imgutil.gaussian(1.5)
+                    gg = numpy.dot(g.transpose(),g).flatten() 
+                    r = g.size/2
+                    
+                    count = 0
+                    U, V = 0
+                    
+                    # iterates to find the temporal derivative multiple times
+                    #change to have distance threshold as opposed to simple number iterations
+                    while count < 5:
+                        
+                        #create x, y pairs for the patch
+                        iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
+                        ryy = iyy + y
+                        rxx = ixx +x
+                        patchcoords  = numpy.vstack((ryy.flatten(), rxx.flatten()))
+                        
+                        #grab patches from each of the Images
+                        patchI1 = interpolation.map_coordinates(I1, patchcoords)
+                        patchI0 = interpolation.map_coordinates(I0, patchcoords)
+                        patchIx = interpolation.map_coordinates(Ix, patchcoords)
+                        patchIy = interpolation.map_coordinates(Ix, patchcoords)
+                        
+                        #calculate It and a new ATb
+                        patchIt = patchI1 - patchI0
+                        GIxIt = (patchIt * patchIx * gg).sum()
+                        GIyIt = (patchIt * patchIy * gg).sum()
+                        ATb = numpy.matrix([[GixIt],
+                                            [GiyIt]])
+                        
+                        #solve for Av = ATb
+                        duv = numpy.linalg.lstsq(A, ATb)
+                        
+                        U = U + duv[0]
+                        V = v + duv[1]
+                        
+                        count += 1
+                    
+                    #update X and Y positions for object
+                    newX = x + U
+                    newY = y + V
+                    
+                    #if feature is still in frame, keep as active
+                    active = 0
+                    if newX < I1.shape[1] and newY < I1.shape[0]:
+                        active = 1
+            
+                    newFrame[i]  = np.array([newX, newY, active])
+            
+            
+            self.framelist.append(newFrame)     
+            self.getOutput(0).setData(I1)
+            self.getOutput(1).setData(newFrame)
         self.frame_number += 1
         
-	#returns the frame list for use plotting, etc
-	def getFrameList(self):
-		return self.framelist
+    #returns the frame list for use plotting, etc
+    def getFrameList(self):
+        return self.framelist
         
 class DisplayLabeled(pipeline.ProcessObject):
     def __init__(self, inpt = None, features = None):
@@ -239,8 +243,13 @@ def main():
     #display = Display(fileStackReader.getOutput()) # display the raw image
 
     labeled = DisplayLabeled(fileStackReader.getOutput(), harris.getOutput(1))
-    display = Display(labeled.getOutput())
+    display = Display(labeled.getOutput(), "Harris")
     
+    tracker = KLTracker(fileStackReader.getOutput(), harris.getOutput(1),
+                        tensor.getOutput(1), tensor.getOutput(2))
+                        
+    track_labeled = DisplayLabeled(fileStackReader.getOutput(), tracker.getOutput(1))
+    display2 = Display(track_labeled.getOutput(), "Tracking" )
     
 
     # Note the time of the first capture
@@ -257,10 +266,14 @@ def main():
         harris.update()
         display.update()
         labeled.update()
+        tracker.update()
+        track_labeled.update()
+        display2.update()
 
         key = cv2.waitKey(10)
         key &= 255
     display.destroy()
+    display2.destroy()
 
 
 if __name__ == "__main__":
