@@ -1,3 +1,5 @@
 *.pyc
 *.pdf
-/pond*
+pond_*/
+images/
+images_100/
