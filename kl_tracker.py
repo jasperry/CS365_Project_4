@@ -323,7 +323,7 @@ def main():
     key = None
     image_dir = "images_100"
     images = sorted(glob.glob("%s/*.npy" % image_dir))
-    assert len(images) > 0: "No .npy images found in '%s'" % image_dir
+    assert len(images) > 0, "No .npy images found in '%s'" % image_dir
     fileStackReader  = FileStackReader(images)
 
     grayscale = Grayscale(fileStackReader.getOutput())
