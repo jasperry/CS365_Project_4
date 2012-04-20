@@ -10,10 +10,12 @@ wiki](https://wiki.colby.edu/display/CS365/CS365+Project+4).
 Image format
 ------------
 This project relies on still images taken from a microscope. The images are
-saved in the numpy image format, which is highly uncompressed.
+saved in the numpy image format, which is a raw image format, and
+requires a lot of disk space.
 
-So, not all of the images used in this project are online. However, two
-tarballs contain images that should demonstrate functionality:
+As a result of the large image sizes, not all of the images used in this
+project are included in this repository. However, two tarballs contain
+images that should demonstrate functionality:
 
  - `images.tar.gz` - images of a slide as the stage is being adjusted
  - `pond3.tar.gz` - images of organisms in pond water
