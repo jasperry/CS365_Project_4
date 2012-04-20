@@ -21,7 +21,7 @@ def convert(fn):
         The resulting image is saved with the same filename, except with
         the .png extension (input image must have extension .npy).
     """
-    assert fn[-4:] == "npy", "File extension should match '.npy'"
+    assert fn[-4:] == ".npy", "%s: File extension should match '.npy'" % fn
 
     print "Converting file '%s' to .png" % fn
     numpy_img = np.load(fn)
