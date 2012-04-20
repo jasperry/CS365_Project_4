@@ -2,14 +2,13 @@
 
 # David Cain
 # Justin Sperry
-# 2012-04-17
+# 2012-04-20
 # CS365, Brian Eastwood
 
 import cv
 import cv2
 import glob
 import numpy
-from scipy import ndimage
 from scipy.ndimage import filters
 from scipy.ndimage import interpolation
 
@@ -89,7 +88,6 @@ class HarrisDetection(pipeline.ProcessObject):
         self.getOutput(0).setData(inpt)
         self.getOutput(1).setData(numpy.hstack((features, numpy.ones((features.shape[0],1)))))
         
-
 
 class KLTracker(pipeline.ProcessObject):
     """
@@ -275,17 +273,17 @@ class StructureTensor(pipeline.ProcessObject):
         """
         inpt = self.getInput(0).getData()
          
-        Ix = ndimage.filters.gaussian_filter1d(inpt, self.sigma_D, 0, 0)
-        Ix = ndimage.filters.gaussian_filter1d(Ix, self.sigma_D, 1, 1)
-        Iy = ndimage.filters.gaussian_filter1d(inpt, self.sigma_D, 1, 0)
-        Iy = ndimage.filters.gaussian_filter1d(Iy, self.sigma_D, 0, 1)
+        Ix = filters.gaussian_filter1d(inpt, self.sigma_D, 0, 0)
+        Ix = filters.gaussian_filter1d(Ix, self.sigma_D, 1, 1)
+        Iy = filters.gaussian_filter1d(inpt, self.sigma_D, 1, 0)
+        Iy = filters.gaussian_filter1d(Iy, self.sigma_D, 0, 1)
         
-        Ixx = ndimage.filters.gaussian_filter1d(Ix**2, self.sigma_I, 0, 0)
-        Ixx = ndimage.filters.gaussian_filter1d(Ixx, self.sigma_I, 1, 1)
-        Iyy = ndimage.filters.gaussian_filter1d(Iy**2, self.sigma_I, 0, 0)
-        Iyy = ndimage.filters.gaussian_filter1d(Iyy, self.sigma_I, 1, 1)
-        Ixy = ndimage.filters.gaussian_filter1d(Ix * Iy, self.sigma_I, 0,0)
-        Ixy = ndimage.filters.gaussian_filter1d(Ixy, self.sigma_I, 1, 1)
+        Ixx = filters.gaussian_filter1d(Ix**2, self.sigma_I, 0, 0)
+        Ixx = filters.gaussian_filter1d(Ixx, self.sigma_I, 1, 1)
+        Iyy = filters.gaussian_filter1d(Iy**2, self.sigma_I, 0, 0)
+        Iyy = filters.gaussian_filter1d(Iyy, self.sigma_I, 1, 1)
+        Ixy = filters.gaussian_filter1d(Ix * Iy, self.sigma_I, 0,0)
+        Ixy = filters.gaussian_filter1d(Ixy, self.sigma_I, 1, 1)
         
         self.getOutput(0).setData(inpt)
         self.getOutput(1).setData((Ixx,Iyy,Ixy))
