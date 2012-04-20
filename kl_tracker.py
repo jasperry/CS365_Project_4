@@ -91,11 +91,13 @@ class HarrisDetection(pipeline.ProcessObject):
         
 
 
-'''
-Basic implementation of the KLT Tracker discussed in Shi & Tomasi
-
-'''
 class KLTracker(pipeline.ProcessObject):
+    """
+        Track features within an image using the KLT Tracker discussed
+        in Shi & Tomasi.
+        
+        Requires a list of corner features, and the structure tensor.
+    """
     
     def __init__(self, I=None, features=None, tensor=None, spdev=None ):
         """
@@ -124,9 +126,7 @@ class KLTracker(pipeline.ProcessObject):
         
         #all others
         else:
-        
             I1 = self.getInput(0).getData()
-            
             
             Ixx, Iyy, Ixy = self.getInput(2).getData()
             Ix, Iy = self.getInput(3).getData()
@@ -145,7 +145,6 @@ class KLTracker(pipeline.ProcessObject):
                     y = features[i,1]
                     s = features[i,2]
                     
-                    
                     #compute A^T*A
                     A = numpy.matrix([[Ixx[y,x],Ixy[y,x]],
                                       [Ixy[y,x],Iyy[y,x]]])
@@ -160,7 +159,6 @@ class KLTracker(pipeline.ProcessObject):
                     iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
                     ryy = y + iyy
                     rxx = x + ixx
-                    
                     
                     patchIx = interpolation.map_coordinates(Ix, numpy.array([ryy.flatten(), rxx.flatten()]))
                     patchIy = interpolation.map_coordinates(Iy, numpy.array([ryy.flatten(), rxx.flatten()]))
@@ -180,7 +178,6 @@ class KLTracker(pipeline.ProcessObject):
                         patchI1 = interpolation.map_coordinates(I1, numpy.array([ryy.flatten(), rxx.flatten()]))
                         patchI0 = interpolation.map_coordinates(self.last_frame, numpy.array([ryy.flatten(), rxx.flatten()]))
                         
-                        
                         #calculate It and a new ATb
                         patchIt = patchI1 - patchI0
                         GIxIt = (patchIt * patchIx * gg).sum()
@@ -193,21 +190,17 @@ class KLTracker(pipeline.ProcessObject):
                         U = U + duv[0]
                         V = V + duv[1]
                         
-                        
-                        
                         iterations -= 1
                     
                     #update X and Y positions for object
                     newX = x + U
                     newY = y + V
-                                     
                     
                     #if feature is still in frame, keep as active
                     active = 1
                     if newX > I1.shape[1] or newX < 0 or newY > I1.shape[0] or newY < 0:
                         active = 0
                         num_lost += 1
-                        
                         
                     newFrame[i]  = numpy.array([newX, newY, s, active])
             
@@ -219,9 +212,10 @@ class KLTracker(pipeline.ProcessObject):
         self.frame_number += 1
         #replaces last frame
         
-        
-    #returns the frame list for use plotting, etc
     def getFrameList(self):
+        """
+            Returns the frame list for use in plotting, etc
+        """
         return self.framelist
         
 class DisplayLabeled(pipeline.ProcessObject):
@@ -264,8 +258,11 @@ class Grayscale(pipeline.ProcessObject):
         self.getOutput(0).setData(output)
 
         
-#returns a tuple of the components of the structure tensor
 class StructureTensor(pipeline.ProcessObject):
+    """
+        Takes in an image pipeline object, and outputs a tuple of the
+        components of the structure tensor.
+    """
 
     def __init__(self, inpt = None, sigmaD=1.0, sigmaI=1.5):
         pipeline.ProcessObject.__init__(self, inpt, outputCount = 3)
@@ -273,6 +270,9 @@ class StructureTensor(pipeline.ProcessObject):
         self.sigma_I = sigmaI
     
     def generateData(self):
+        """
+            Generate the structure tensor data.
+        """
         inpt = self.getInput(0).getData()
          
         Ix = ndimage.filters.gaussian_filter1d(inpt, self.sigma_D, 0, 0)
@@ -292,13 +292,23 @@ class StructureTensor(pipeline.ProcessObject):
         self.getOutput(2).setData((Ix,Iy))
         
 class Display(pipeline.ProcessObject):
+    """
+        Displays the pipeline object in a CV window, flipping the
+        channels for proper display
+    """
     
     def __init__(self, inpt = None, name = "pipeline"):
+        """
+            Initialize a named CV window to show the image in
+        """
         pipeline.ProcessObject.__init__(self, inpt)
         cv2.namedWindow(name, cv.CV_WINDOW_NORMAL)
         self.name = name
         
     def generateData(self):
+        """
+            Flip the channels, display the image in the created window.
+        """
         inpt = self.getInput(0).getData()
         # output here so channels don't get flipped
         self.getOutput(0).setData(inpt)
@@ -310,12 +320,15 @@ class Display(pipeline.ProcessObject):
         cv2.imshow(self.name, inpt.astype(numpy.uint8))
 
     def destroy(self):
+        """
+            Destroy the created CV window.
+        """
         cv2.destroyWindow(self.name)
 
 def main():
     """
-        Obtain a time sequence of microscope slides, track the stage's movement
-        by tracking image movement.
+        Obtain a time sequence of microscope slides, track the stage's
+        movement by tracking image movement.
     """
     key = None
     image_dir = "images_100"
@@ -358,7 +371,7 @@ def main():
         track_labeled.update()
         display2.update()
 
-        # Save the keypress (make sure converted to byte size)
+        # Save the keypress (make sure converted to ASCII value)
         key = cv2.waitKey(10)
         key &= 255
 
