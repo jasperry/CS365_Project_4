@@ -2,13 +2,15 @@
 
 # David Cain
 # Justin Sperry
-# 2012-04-20
+# 2012-04-17
 # CS365, Brian Eastwood
 
 import cv
 import cv2
 import glob
 import numpy
+import pylab
+from scipy import ndimage
 from scipy.ndimage import filters
 from scipy.ndimage import interpolation
 
@@ -89,132 +91,131 @@ class HarrisDetection(pipeline.ProcessObject):
         self.getOutput(1).setData(numpy.hstack((features, numpy.ones((features.shape[0],1)))))
         
 
+
+'''
+Basic implementation of the KLT Tracker discussed in Shi & Tomasi
+
+'''
 class KLTracker(pipeline.ProcessObject):
-    """
-        Track features within an image using the KLT Tracker discussed
-        in Shi & Tomasi.
+
+    def __init__(self, inpt=None, features=None, tensor=None, spdev=None):
+        pipeline.ProcessObject.__init__(self, inpt, inputCount=4)
+        self.last_features = None
+        self.last_img = None
+        self.patches = None
+        self.frame_number = 0
+        self.iterations = 10
+        self.feature_list = []
+        self.sigma_d = 2.0
         
-        Requires a list of corner features, and the structure tensor.
-    """
-    
-    def __init__(self, I=None, features=None, tensor=None, spdev=None ):
-        """
-            Reads in two frames (i0, i1), Harris corner features, the
-            tensor, and spatial derivatives from the tensor.
-        """
-            
-        pipeline.ProcessObject.__init__(self, I, 4,2) # 4 inputs, 2 outputs
+        #initialize inputs
         self.setInput(features, 1)
         self.setInput(tensor, 2)
         self.setInput(spdev, 3)
-        self.frame_number = 0
-        self.last_frame = None
-        self.framelist = []
-    
+        
     def generateData(self):
-    
-        print "On frame %d"%(self.frame_number)
+        print "Frame: %d" % (self.frame_number)
         
-        #first frame setup
-        if self.last_frame == None:
-            self.last_frame = self.getInput(0).getData()
-            self.framelist.append(self.getInput(1).getData().astype(numpy.float32))
-            self.getOutput(0).setData(self.last_frame)
-            self.getOutput(1).setData(self.framelist[0])
-        
-        #all others
-        else:
-            I1 = self.getInput(0).getData()
+        # if on the first frame
+        if self.frame_number == 0:
+            img = self.getInput(0).getData()
+            self.last_img = img
             
+            harris_corners = self.getInput(1).getData()
+            #NumFeaturesx4 array containing the position, strength & active flag
+            features = numpy.ones((harris_corners.shape[0],4), dtype=numpy.float32)
+            features[:,:2]=harris_corners[:,:2] #->initialize features to harris corners
+            self.last_features = features # 
+            self.getOutput(0).setData(features)
+            self.feature_list.append(features)
+            
+            
+            #make a bank of patches
+            r = numpy.floor(self.sigma_d * 5.0/2)
+            self.patches = numpy.zeros((harris_corners.shape[0], (2*r+1)**2), dtype=numpy.float32)
+            for i, (x,y, _, _) in enumerate(features):
+                self.patches[i,...] = img[y-r:y+r+1, x-r:x+r+1].flatten()
+        else:
+            features = numpy.copy(self.last_features)
+            img = self.getInput(0).getData()
             Ixx, Iyy, Ixy = self.getInput(2).getData()
             Ix, Iy = self.getInput(3).getData()
             
-            features = self.framelist[self.frame_number-1]
-            # new frame to put this feature data in
-            newFrame = numpy.zeros(features.shape)
+            #initialize features to be stationary
+            v = numpy.array([0.0, 0.0]) 
             
-            num_lost = 0
-            #loop through features
+            #loop through all features
             for i in range(features.shape[0]):
-                # if the feature is active
-                if features[i,3] > 0:
-                    #pull x and y from the feature
-                    x = features[i,0]
-                    y = features[i,1]
-                    s = features[i,2]
+                
+               #skip if not active 
+               if features[i][3] != 0:
+                    x,y = features[i][:2]
                     
                     #compute A^T*A
-                    A = numpy.matrix([[Ixx[y,x],Ixy[y,x]],
-                                      [Ixy[y,x],Iyy[y,x]]])
+                    A = numpy.array([[Ixx[y,x],Ixy[y,x]],
+                                      [Ixy[y,x],Iyy[y,x]]])            
                     
-                    # hardcode sigmaI right in there(#djykstrawouldntlikeit)
-                    g= imgutil.gaussian(1.5)[0]
+                    #velocity difference
+                    delta_v = numpy.array([100.0,100.0])
+                    
+                    g = imgutil.gaussian(self.sigma_d)[0]
                     g = g[:,None]
-                    gg = numpy.dot(g, g.transpose()).flatten() 
+                    gg = numpy.dot(g, g.transpose()).flatten()
                     r = g.size/2
-                    
-                     #create x, y pairs for the patch
-                    iyy, ixx = numpy.mgrid[-r:r+1,-r:r+1]
-                    ryy = y + iyy
-                    rxx = x + ixx
+                    iyy, ixx = numpy.mgrid[-r:r+1, -r:r+1]
+                    ryy = y+iyy
+                    rxx = x+ixx
                     
                     patchIx = interpolation.map_coordinates(Ix, numpy.array([ryy.flatten(), rxx.flatten()]))
                     patchIy = interpolation.map_coordinates(Iy, numpy.array([ryy.flatten(), rxx.flatten()]))
                     
-                    duv = numpy.array([100.0,100.0]) 
-                    
+                    #loop through to calculate velocity
                     iterations = 10
-                    epsilon = float('1.0e-3')**2
-                    U = 0
-                    V = 0
+                    eps = float('1.0e-3')**2
+                    while iterations > 0 and numpy.dot(delta_v, delta_v)> eps: 
                     
-                    # iterates to find the temporal derivative multiple times
-                    #change to have distance threshold as opposed to simple number iterations
-                    while iterations > 0 and numpy.dot(duv, duv) > epsilon:
+                        curr_patch = interpolation.map_coordinates(img, numpy.array([ryy.flatten(), rxx.flatten()]))
+                        prev_patch = interpolation.map_coordinates(self.last_img,
+                            numpy.array([(ryy-v[1]).flatten(), (rxx-v[0]).flatten()]))
                         
-                        #grab patches from each of the Images
-                        patchI1 = interpolation.map_coordinates(I1, numpy.array([ryy.flatten(), rxx.flatten()]))
-                        patchI0 = interpolation.map_coordinates(self.last_frame, numpy.array([ryy.flatten(), rxx.flatten()]))
+                        #find temporal derivative
+                        patch_tderiv = curr_patch-prev_patch
+                        pIxt = (patch_tderiv*patchIx*gg).sum()
+                        pIyt = (patch_tderiv*patchIy*gg).sum()
                         
-                        #calculate It and a new ATb
-                        patchIt = patchI1 - patchI0
-                        GIxIt = (patchIt * patchIx * gg).sum()
-                        GIyIt = (patchIt * patchIy * gg).sum()
-                        ATb = -numpy.array([GIxIt,GIyIt])
+                        #ATA = -ATb
+                        ATb = -numpy.array([pIxt, pIyt])
+                        delta_v = numpy.linalg.lstsq(A, ATb)[0]
                         
-                        #solve for Av = ATb
-                        duv = numpy.linalg.lstsq(A, ATb)[0]
-                        
-                        U = U + duv[0]
-                        V = V + duv[1]
-                        
-                        iterations -= 1
+                        #update velocities
+                        v += delta_v
+                        iterations -= 1 
                     
-                    #update X and Y positions for object
-                    newX = x + U
-                    newY = y + V
                     
-                    #if feature is still in frame, keep as active
-                    active = 1
-                    if newX > I1.shape[1] or newX < 0 or newY > I1.shape[0] or newY < 0:
-                        active = 0
-                        num_lost += 1
-                        
-                    newFrame[i]  = numpy.array([newX, newY, s, active])
+                    # find positions of new features
+                    features[i][:2]+= v
+                    
+                    # weight for similarity to initial feature patch
+                    features[i][2] = imgutil.ncc(curr_patch, self.patches[i,...])
+                    
+                    # make inactive if out of frame
+                    h,w = img.shape
+                    if features[i][0] > w or features[i][1] > h or features[i][0] < 0 or features[i][1] < 0:
+                        features[i][3] = 0
+                
+            self.last_features = features
+            self.last_img = img
+            self.getOutput(0).setData(features)
+            self.feature_list.append(features)
             
-            print "%d Features lost in frame %d " % (num_lost, self.frame_number)
-            self.framelist.append(newFrame)
-            self.last_frame = I1
-            self.getOutput(0).setData(I1)
-            self.getOutput(1).setData(newFrame)
         self.frame_number += 1
-        #replaces last frame
-        
-    def getFrameList(self):
-        """
-            Returns the frame list for use in plotting, etc
-        """
-        return self.framelist
+    
+    def plotFeatureList(self):
+        features = numpy.array(self.feature_list)
+        weights = features[:,2]
+        for i in range(weights.shape[0]):
+            weight_time = pylab.plot(weights[i,...])
+        pylab.show()
         
 class DisplayLabeled(pipeline.ProcessObject):
     """
@@ -256,57 +257,41 @@ class Grayscale(pipeline.ProcessObject):
         self.getOutput(0).setData(output)
 
         
+#returns a tuple of the components of the structure tensor
 class StructureTensor(pipeline.ProcessObject):
-    """
-        Takes in an image pipeline object, and outputs a tuple of the
-        components of the structure tensor.
-    """
 
-    def __init__(self, inpt = None, sigmaD=1.0, sigmaI=1.5):
+    def __init__(self, inpt=None, sigmaD=2.0, sigmaI=3.0):
         pipeline.ProcessObject.__init__(self, inpt, outputCount = 3)
         self.sigma_D = sigmaD
         self.sigma_I = sigmaI
     
     def generateData(self):
-        """
-            Generate the structure tensor data.
-        """
         inpt = self.getInput(0).getData()
          
-        Ix = filters.gaussian_filter1d(inpt, self.sigma_D, 0, 0)
-        Ix = filters.gaussian_filter1d(Ix, self.sigma_D, 1, 1)
-        Iy = filters.gaussian_filter1d(inpt, self.sigma_D, 1, 0)
-        Iy = filters.gaussian_filter1d(Iy, self.sigma_D, 0, 1)
+        Ix = ndimage.filters.gaussian_filter1d(inpt, self.sigma_D, 0, 0)
+        Ix = ndimage.filters.gaussian_filter1d(Ix, self.sigma_D, 1, 1)
+        Iy = ndimage.filters.gaussian_filter1d(inpt, self.sigma_D, 1, 0)
+        Iy = ndimage.filters.gaussian_filter1d(Iy, self.sigma_D, 0, 1)
         
-        Ixx = filters.gaussian_filter1d(Ix**2, self.sigma_I, 0, 0)
-        Ixx = filters.gaussian_filter1d(Ixx, self.sigma_I, 1, 1)
-        Iyy = filters.gaussian_filter1d(Iy**2, self.sigma_I, 0, 0)
-        Iyy = filters.gaussian_filter1d(Iyy, self.sigma_I, 1, 1)
-        Ixy = filters.gaussian_filter1d(Ix * Iy, self.sigma_I, 0,0)
-        Ixy = filters.gaussian_filter1d(Ixy, self.sigma_I, 1, 1)
+        Ixx = ndimage.filters.gaussian_filter1d(Ix**2, self.sigma_I, 0, 0)
+        Ixx = ndimage.filters.gaussian_filter1d(Ixx, self.sigma_I, 1, 1)
+        Iyy = ndimage.filters.gaussian_filter1d(Iy**2, self.sigma_I, 0, 0)
+        Iyy = ndimage.filters.gaussian_filter1d(Iyy, self.sigma_I, 1, 1)
+        Ixy = ndimage.filters.gaussian_filter1d(Ix * Iy, self.sigma_I, 0,0)
+        Ixy = ndimage.filters.gaussian_filter1d(Ixy, self.sigma_I, 1, 1)
         
         self.getOutput(0).setData(inpt)
         self.getOutput(1).setData((Ixx,Iyy,Ixy))
         self.getOutput(2).setData((Ix,Iy))
         
 class Display(pipeline.ProcessObject):
-    """
-        Displays the pipeline object in a CV window, flipping the
-        channels for proper display
-    """
     
-    def __init__(self, inpt = None, name = "pipeline"):
-        """
-            Initialize a named CV window to show the image in
-        """
+    def __init__(self, inpt=None, name="pipeline"):
         pipeline.ProcessObject.__init__(self, inpt)
         cv2.namedWindow(name, cv.CV_WINDOW_NORMAL)
         self.name = name
         
     def generateData(self):
-        """
-            Flip the channels, display the image in the created window.
-        """
         inpt = self.getInput(0).getData()
         # output here so channels don't get flipped
         self.getOutput(0).setData(inpt)
@@ -318,35 +303,33 @@ class Display(pipeline.ProcessObject):
         cv2.imshow(self.name, inpt.astype(numpy.uint8))
 
     def destroy(self):
-        """
-            Destroy the created CV window.
-        """
         cv2.destroyWindow(self.name)
+        
 
 def main():
     """
-        Obtain a time sequence of microscope slides, track the stage's
-        movement by tracking image movement.
+        Obtain a time sequence of microscope slides, track the stage's movement
+        by tracking image movement.
     """
     key = None
     image_dir = "images_100"
     images = sorted(glob.glob("%s/*.npy" % image_dir))
-    assert len(images) > 0, "No .npy images found in '%s'" % image_dir
     fileStackReader  = FileStackReader(images)
 
     grayscale = Grayscale(fileStackReader.getOutput())
 
     tensor = StructureTensor(grayscale.getOutput())
-    harris = HarrisDetection(tensor.getOutput(1)) # pass Harris the tensor
+    harris = HarrisDetection(tensor.getOutput(1), numFeatures = 15) # pass Harris the tensor
 
     labeled = DisplayLabeled(fileStackReader.getOutput(), harris.getOutput(1))
     display = Display(labeled.getOutput(), "Harris")
     
+    # NOTE/TODO: tensor output is no longer color
     tracker = KLTracker(grayscale.getOutput(), harris.getOutput(1),
                         tensor.getOutput(1), tensor.getOutput(2))
                         
     # Displays color outputs
-    track_labeled = DisplayLabeled(fileStackReader.getOutput(), tracker.getOutput(1))
+    track_labeled = DisplayLabeled(fileStackReader.getOutput(), tracker.getOutput())
     display2 = Display(track_labeled.getOutput(), "Tracking" )
     
 
@@ -369,12 +352,13 @@ def main():
         track_labeled.update()
         display2.update()
 
-        # Save the keypress (make sure converted to ASCII value)
+        # Save the keypress (make sure converted to byte size)
         key = cv2.waitKey(10)
         key &= 255
 
     display.destroy()
     display2.destroy()
+    tracker.plotFeatureList()
 
 
 if __name__ == "__main__":
